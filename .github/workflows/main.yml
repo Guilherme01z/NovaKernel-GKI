@@ -14,10 +14,6 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      sub_level:
-        description: "Kernel sublevel (246, 237, 233, 226, 218, 209, 205, 198, 185, 177, 168, 160, 149, 136, 117, 110, 101, 81, 66, or X for latest LTS from kernel.org)"
-        required: true
-        type: string
       release_type:
         description: "Release type"
         type: choice
@@ -76,7 +72,6 @@ jobs:
     uses: ./.github/workflows/kernel-a12-5-10.yml
     secrets: inherit
     with:
-      sub_level: ${{ inputs.sub_level }}
       kernelsu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version }}
       build_time: ${{ inputs.build_time }}
@@ -148,34 +143,6 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
-      - name: Resolve patch level
-        run: |
-          SUB="${{ inputs.sub_level }}"
-          case "$SUB" in
-            66)  echo "PATCH=2022-01" >> $GITHUB_ENV ;;
-            81)  echo "PATCH=2022-03" >> $GITHUB_ENV ;;
-            101) echo "PATCH=2022-04" >> $GITHUB_ENV ;;
-            110) echo "PATCH=2022-07" >> $GITHUB_ENV ;;
-            117) echo "PATCH=2022-09" >> $GITHUB_ENV ;;
-            136) echo "PATCH=2022-11" >> $GITHUB_ENV ;;
-            149) echo "PATCH=2023-01" >> $GITHUB_ENV ;;
-            160) echo "PATCH=2023-03" >> $GITHUB_ENV ;;
-            168) echo "PATCH=2023-04" >> $GITHUB_ENV ;;
-            177) echo "PATCH=2023-07" >> $GITHUB_ENV ;;
-            185) echo "PATCH=2023-09" >> $GITHUB_ENV ;;
-            198) echo "PATCH=2024-01" >> $GITHUB_ENV ;;
-            205) echo "PATCH=2024-03" >> $GITHUB_ENV ;;
-            209) echo "PATCH=2024-05" >> $GITHUB_ENV ;;
-            218) echo "PATCH=2024-08" >> $GITHUB_ENV ;;
-            226) echo "PATCH=2024-11" >> $GITHUB_ENV ;;
-            233) echo "PATCH=2025-02" >> $GITHUB_ENV ;;
-            236) echo "PATCH=2025-05" >> $GITHUB_ENV ;;
-            237) echo "PATCH=2025-06" >> $GITHUB_ENV ;;
-            240) echo "PATCH=2025-09" >> $GITHUB_ENV ;;
-            246) echo "PATCH=2025-12" >> $GITHUB_ENV ;;
-            X|x) echo "PATCH=lts" >> $GITHUB_ENV ;;
-          esac
-
       - name: Get KernelSU commit info
         run: |
           REPO_URL="https://github.com/tiann/KernelSU.git"
@@ -205,21 +172,6 @@ jobs:
 
       - name: Generate release notes
         run: |
-          SUB="${{ inputs.sub_level }}"
-          if [ "$SUB" = "X" ] || [ "$SUB" = "x" ]; then
-            LTS_VER=$(curl -fsSL https://www.kernel.org/releases.json | python3 -c "
-          import sys, json
-          data = json.load(sys.stdin)
-          for r in data['releases']:
-              if r.get('version','').startswith('5.10.') and r.get('category') == 'longterm':
-                  print(r['version'])
-                  break
-          ")
-            SUB_DISPLAY="LTS ($LTS_VER)"
-          else
-            SUB_DISPLAY="5.10.$SUB"
-          fi
-
           cat > release_body.md << EOF
           ## GKI Kernel Release
 
@@ -230,8 +182,8 @@ jobs:
           | Component | Version |
           |:---|:---|
           | Android | 12 |
-          | Kernel | $SUB_DISPLAY |
-          | Patch Level | ${{ env.PATCH }} |
+          | Kernel | 5.10.240 |
+          | Patch Level | 2025-09 |
           | KernelSU | [${{ env.KSU_REF }}](${{ env.KSU_URL }}) |
           | SUSFS | [${{ env.SUSFS_COMMIT }}](${{ env.SUSFS_URL }}) |
 
@@ -250,11 +202,7 @@ jobs:
       - name: Generate tag
         run: |
           SUS_VERSION="${{ needs.get-manager.outputs.susVer }}"
-          SUB="${{ inputs.sub_level }}"
-          if [ "$SUB" = "X" ] || [ "$SUB" = "x" ]; then
-            SUB="lts"
-          fi
-          NEW_TAG="v${SUS_VERSION}-a12-5.10.${SUB}"
+          NEW_TAG="v${SUS_VERSION}-a12-5.10.240"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
       - name: Download artifacts
