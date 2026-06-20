@@ -1,0 +1,150 @@
+name: GetManager
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+  actions: read
+
+on:
+  workflow_call:
+    outputs:
+      susVer:
+        description: "The fetched SUSFS version number"
+        value: ${{ jobs.get_ksu_manager.outputs.susVer }}
+      ksuVer:
+        description: "The calculated KSU version number"
+        value: ${{ jobs.get_ksu_manager.outputs.ksuVer }}
+
+jobs:
+  get_ksu_manager:
+    runs-on: ubuntu-latest
+    outputs:
+      ksuVer: ${{ steps.get_version.outputs.kversion }}
+      susVer: ${{ steps.get_version.outputs.sversion }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git curl jq
+
+      - name: 获取 KSU & SUSFS 版本
+        id: get_version
+        run: |
+          echo "Fetching KernelSU Official version..."
+          git clone https://github.com/tiann/KernelSU.git KernelSU
+
+          cd KernelSU
+
+          KSU_GIT_VERSION=$(git rev-list --count HEAD)
+          KSU_VERSION=$((30700 + KSU_GIT_VERSION))
+          echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+
+          INFO="https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android14-6.1/ksu_module_susfs/module.prop\?ref_type\=heads"
+          SUS_VERSION=$(curl -s $INFO | awk -F '=' '$1 == "version" { print $2 }')
+
+          echo "kversion=$KSU_VERSION" >> $GITHUB_OUTPUT
+          echo "sversion=$SUS_VERSION" >> $GITHUB_OUTPUT
+
+      - name: 下载 KernelSU Manager APK
+        id: add_KSU
+        continue-on-error: true
+        run: |
+          echo "Fetching latest KernelSU Manager APK from releases..."
+          REPO="tiann/KernelSU"
+
+          TAG=$(gh api repos/$REPO/releases/latest --jq '.tag_name' 2>/dev/null || echo "")
+          if [ -z "$TAG" ]; then
+            echo "Nenhum release encontrado, tentando workflow artifacts..."
+            NUMBER=0
+            while true; do
+              if [ "$NUMBER" -ge 9 ]; then
+                echo "Falha ao encontrar manager após 9 tentativas"
+                exit 1
+              fi
+              BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/$REPO/actions/workflows/build.yml/runs?status=success" |
+                jq -r '.workflow_runs['"$NUMBER"'].id')
+              ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/$REPO/actions/runs/$BUILD_ID/artifacts")
+              result=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | contains("Manager")) | .name')
+              if [ -n "$result" ]; then
+                DOWNLOAD_LIST=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name | contains("Manager")) | "\(.name)\t\(.archive_download_url)"')
+                echo "$DOWNLOAD_LIST" | while IFS=$'\t' read -r NAME URL; do
+                  SAFE_NAME=$(echo "$NAME" | tr '/ ' '__')
+                  ZIP_NAME="KernelSU-${SAFE_NAME}(${{ env.KSU_VERSION }}).zip"
+                  curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "$ZIP_NAME" "$URL"
+                  mkdir -p "manager-artifacts/$SAFE_NAME"
+                  unzip -o "$ZIP_NAME" -d "manager-artifacts/$SAFE_NAME"
+                  rm -rf "$ZIP_NAME"
+                done
+                break
+              fi
+              NUMBER=$((NUMBER + 1))
+            done
+          else
+            echo "Encontrado release: $TAG"
+            ASSETS=$(gh api repos/$REPO/releases/latest --jq '.assets[] | select(.name | endswith(".apk")) | "\(.name)\t\(.browser_download_url)"')
+            if [ -n "$ASSETS" ]; then
+              echo "$ASSETS" | while IFS=$'\t' read -r NAME URL; do
+                ZIP_NAME="KernelSU-${NAME}(${{ env.KSU_VERSION }})"
+                curl -L -o "$ZIP_NAME" "$URL"
+                mkdir -p "manager-artifacts"
+                mv "$ZIP_NAME" "manager-artifacts/"
+              done
+            fi
+          fi
+
+      - name: 下载 SUSFS 模块
+        id: add_SUSFS
+        continue-on-error: true
+        run: |
+          BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/workflows/build.yml/runs?status=success" |
+          jq -r '.workflow_runs[0].id')
+
+          ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$BUILD_ID/artifacts")
+
+          DOWNLOAD_URL=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].archive_download_url')
+
+          NAME=$(echo "$ARTIFACTS" | jq -r '.artifacts[0].name')
+          echo "SUSFS_NAME=$NAME" >> $GITHUB_ENV
+          NAME="susfs-$NAME.zip"
+
+          curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "$NAME" "$DOWNLOAD_URL"
+
+          mkdir -p susfs-module
+          unzip "$NAME" -d susfs-temp
+
+          cd susfs-temp
+          if ls *.zip 1>/dev/null 2>&1; then
+            mv *.zip ../susfs-module/
+          else
+            zip -r "../susfs-module/ksu_module_susfs.zip" .
+          fi
+          cd ..
+          rm -rf susfs-temp "$NAME"
+
+      - name: Notify on failure
+        if: steps.add_KSU.outcome == 'failure'
+        run: echo "Falha ao baixar KernelSU Manager!"
+
+      - name: 上传APK
+        if: steps.add_KSU.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: KernelSU-Manager(${{ env.KSU_VERSION }})
+          path: |
+            **/*.apk
+
+      - name: 上传SUSFS模块
+        if: steps.add_SUSFS.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: susfs-${{ env.SUSFS_NAME }}
+          path: ./susfs-module/*
