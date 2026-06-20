@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       sub_level:
-        description: "Kernel sublevel (246, 237, 233, 226, 218, 209, 205, 198, 185, 177, 168, 160, 149, 136, 117, 110, 101, 81, 66, or X for LTS 5.10.259)"
+        description: "Kernel sublevel (246, 237, 233, 226, 218, 209, 205, 198, 185, 177, 168, 160, 149, 136, 117, 110, 101, 81, 66, or X for latest LTS from kernel.org)"
         required: true
         type: string
       kernelsu_branch:
@@ -98,7 +98,24 @@ jobs:
             237) PATCH="2025-06" ;;
             240) PATCH="2025-09" ;;
             246) PATCH="2025-12" ;;
-            X|x) PATCH="lts"; SUB="X" ;;
+            X|x)
+              # Fetch latest 5.10 LTS from kernel.org
+              LTS=$(curl -fsSL https://www.kernel.org/releases.json | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          for r in data['releases']:
+              if r.get('version','').startswith('5.10.') and r.get('category') == 'longterm':
+                  print(r['version'].split('.')[2])
+                  break
+          ")
+              if [ -z "$LTS" ]; then
+                echo "::error::Failed to fetch latest 5.10 LTS from kernel.org"
+                exit 1
+              fi
+              SUB="X"
+              PATCH="lts"
+              echo "Latest 5.10 LTS: 5.10.$LTS"
+              ;;
             *)
               echo "::error::Sublevel $SUB not recognized. Valid: 66,81,101,110,117,136,149,160,168,177,185,198,205,209,218,226,233,236,237,240,246,X"
               exit 1
