@@ -1,4 +1,4 @@
-name: Build Kernel - Android 12 (5.10.240)
+name: Compilar Kernel - Android 12 (5.10.240)
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -11,36 +11,36 @@ on:
   workflow_dispatch:
     inputs:
       kernelsu_branch:
-        description: "KernelSU branch (main, dev, or commit hash)"
+        description: "Branch do KernelSU (main, dev ou commit hash)"
         required: false
         type: string
         default: "main"
       version:
-        description: "Custom version name (optional)"
+        description: "Nome de versao customizado (opcional)"
         required: false
         type: string
       build_time:
-        description: "Custom build time (optional, N or empty = current UTC)"
+        description: "Horario customizado do build (opcional, N ou vazio = UTC atual)"
         required: false
         type: string
         default: ""
       use_zram:
-        description: "Enable ZRAM LZ4KD enhancement"
+        description: "Ativar melhoria ZRAM LZ4KD"
         required: true
         type: boolean
         default: true
       use_bbg:
-        description: "Enable BBG Baseband Guard"
+        description: "Ativar BBG Baseband Guard"
         required: true
         type: boolean
         default: true
       use_rekernel:
-        description: "Enable Re-Kernel driver"
+        description: "Ativar driver Re-Kernel"
         required: false
         type: boolean
         default: true
       cancel_susfs:
-        description: "Disable SUSFS"
+        description: "Desativar SUSFS"
         required: true
         type: boolean
         default: false

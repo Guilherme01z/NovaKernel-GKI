@@ -1,4 +1,4 @@
-name: Build GKI Kernel
+name: Compilar Kernel GKI
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: "Release type"
+        description: "Tipo de release"
         type: choice
         options:
           - Actions
@@ -23,34 +23,34 @@ on:
           - Release
         default: Actions
       kernelsu_branch:
-        description: "KernelSU branch (main, dev, or commit hash)"
+        description: "Branch do KernelSU (main, dev ou commit hash)"
         type: string
         default: "main"
         required: false
       version:
-        description: "Custom version name (optional)"
+        description: "Nome de versao customizado (opcional)"
         type: string
         default: ""
         required: false
       build_time:
-        description: "Custom build time (optional, N or empty = current UTC)"
+        description: "Horario customizado do build (opcional, N ou vazio = UTC atual)"
         type: string
         default: ""
         required: false
       use_zram:
-        description: "Enable ZRAM LZ4KD enhancement"
+        description: "Ativar melhoria ZRAM LZ4KD"
         type: boolean
         default: true
       use_bbg:
-        description: "Enable BBG Baseband Guard"
+        description: "Ativar BBG Baseband Guard"
         type: boolean
         default: true
       use_rekernel:
-        description: "Enable Re-Kernel driver"
+        description: "Ativar driver Re-Kernel"
         type: boolean
         default: true
       cancel_susfs:
-        description: "Disable SUSFS"
+        description: "Desativar SUSFS"
         type: boolean
         default: false
 
@@ -76,13 +76,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-a12-5-10
     steps:
-      - name: Download reject files
+      - name: Baixar arquivos rejeitados
         uses: actions/download-artifact@v8
         with:
           path: ./downloaded-artifacts
           pattern: '*-Rejects'
 
-      - name: Process reject files
+      - name: Processar arquivos rejeitados
         run: |
           mkdir -p aio-rejects
           for dir in ./downloaded-artifacts/*-Rejects; do
@@ -96,7 +96,7 @@ jobs:
             cd aio-rejects && zip -r -q -9 ../AIO-REJ.zip . && cd ..
           fi
 
-      - name: Upload rejects
+      - name: Enviar rejeicoes
         uses: actions/upload-artifact@v6
         with:
           name: AIO-REJ
@@ -119,7 +119,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Set display names
+      - name: Definir nomes de exibicao
         run: |
           KSU_VER="${{ needs.get-manager.outputs.ksuVer }}"
           SUS_VER="${{ needs.get-manager.outputs.susVer }}"
@@ -127,12 +127,12 @@ jobs:
           echo "SUS_VER=$SUS_VER" >> $GITHUB_ENV
           echo "RELEASE_NAME=GKI Kernel: KernelSU($KSU_VER) & SUSFS $SUS_VER" >> $GITHUB_ENV
 
-      - name: Checkout
+      - name: Baixar codigo
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
 
-      - name: Get KernelSU commit info
+      - name: Obter info do commit do KernelSU
         run: |
           REPO_URL="https://github.com/tiann/KernelSU.git"
           BRANCH="${{ inputs.kernelsu_branch }}"
@@ -153,20 +153,20 @@ jobs:
           echo "KSU_REF=$KSU_REF" >> $GITHUB_ENV
           echo "KSU_URL=$KSU_URL" >> $GITHUB_ENV
 
-      - name: Get SUSFS commit info
+      - name: Obter info do commit do SUSFS
         run: |
           COMMIT_HASH=$(git ls-remote https://gitlab.com/simonpunk/susfs4ksu.git refs/heads/gki-android12-5.10 | awk '{ print $1 }')
           echo "SUSFS_COMMIT=$COMMIT_HASH" >> $GITHUB_ENV
           echo "SUSFS_URL=https://gitlab.com/simonpunk/susfs4ksu/-/commit/$COMMIT_HASH" >> $GITHUB_ENV
 
-      - name: Generate release notes
+      - name: Gerar notas da release
         run: |
           cat > release_body.md << EOF
-          ## GKI Kernel Release
+          ## Release do Kernel GKI
 
           **KernelSU** + **SUSFS ${{ env.SUS_VER }}**
 
-          ### Features
+          ### Funcionalidades
 
           | Feature | Status |
           |:---|:---|
@@ -175,9 +175,9 @@ jobs:
           | BBG | ${{ inputs.use_bbg && 'Enabled' || 'Disabled' }} |
           | Re-Kernel | ${{ inputs.use_rekernel && 'Enabled' || 'Disabled' }} |
 
-          ### Kernel Info
+          ### Info do Kernel
 
-          | Component | Version |
+          | Componente | Versao |
           |:---|:---|
           | Android | 12 |
           | Kernel | 5.10.240 |
@@ -185,30 +185,30 @@ jobs:
           | KernelSU | [${{ env.KSU_REF }}](${{ env.KSU_URL }}) |
           | SUSFS | [${{ env.SUSFS_COMMIT }}](${{ env.SUSFS_URL }}) |
 
-          > **Before flashing, backup your stock boot image!**
+          > **Antes de flashar, faca backup da imagem boot original!**
 
-          ### How to flash
-          1. Download the AnyKernel3 zip below
-          2. Open KernelSU Manager > Install > select the zip
-          3. Reboot
+          ### Como flashar
+          1. Baixe o zip AnyKernel3 abaixo
+          2. Abra o KernelSU Manager > Instalar > selecione o zip
+          3. Reinicie
 
-          If boot fails: restore stock boot image and check logs.
+          Se nao ligar: restaure a imagem boot original e verifique os logs.
 
-          **Download**: Click **Assets** below
+          **Download**: Clique **Assets** abaixo
           EOF
 
-      - name: Generate tag
+      - name: Gerar tag
         run: |
           SUS_VERSION="${{ needs.get-manager.outputs.susVer }}"
           NEW_TAG="v${SUS_VERSION}-a12-5.10.240"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
-      - name: Download artifacts
+      - name: Baixar artefatos
         uses: actions/download-artifact@v8
         with:
           path: ./downloaded-artifacts
 
-      - name: Create GitHub Release
+      - name: Criar Release no GitHub
         run: |
           PRERELEASE_FLAG=""
           if [ "${{ inputs.release_type }}" == "Pre-Release" ]; then
@@ -220,7 +220,7 @@ jobs:
             --target "$GITHUB_SHA" \
             $PRERELEASE_FLAG
 
-      - name: Upload manager and SUSFS module
+      - name: Enviar manager e modulo SUSFS
         continue-on-error: true
         run: |
           find ./downloaded-artifacts -type f -name "*.apk" -print0 | while IFS= read -r -d '' f; do
@@ -230,7 +230,7 @@ jobs:
             gh release upload "$NEW_TAG" "$f" || true
           done
 
-      - name: Upload kernel artifacts
+      - name: Enviar artefatos do kernel
         run: |
           for file in ./downloaded-artifacts/*_kernel-*/*; do
             [ -d "$file" ] && continue
@@ -238,5 +238,5 @@ jobs:
             gh release upload "$NEW_TAG" "$file"
           done
 
-      - name: Publish release
+      - name: Publicar release
         run: gh release edit --draft=false "$NEW_TAG"

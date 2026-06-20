@@ -1,4 +1,4 @@
-name: Build GKI Kernel
+name: Compilar Kernel GKI
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -71,26 +71,26 @@ jobs:
       CCACHE_HARDLINK: "true"
 
     steps:
-      - name: Build summary
+      - name: Resumo do build
         run: |
           echo "========================================"
-          echo "       Kernel Build Config"
+          echo "       Configuracao do Build do Kernel"
           echo "========================================"
-          echo "Android version  : ${{ inputs.android_version }}"
-          echo "Kernel version   : ${{ inputs.kernel_version }}"
-          echo "Sublevel         : ${{ inputs.sub_level }}"
-          echo "Patch level      : ${{ inputs.os_patch_level }}"
-          echo "KSU variant      : KernelSU (Official)"
-          echo "KSU branch       : ${{ inputs.ksu_branch }}"
-          echo "Build time       : ${{ inputs.build_time }}"
+          echo "Versao do Android  : ${{ inputs.android_version }}"
+          echo "Versao do kernel   : ${{ inputs.kernel_version }}"
+          echo "Subnivel         : ${{ inputs.sub_level }}"
+          echo "Nivel do patch      : ${{ inputs.os_patch_level }}"
+          echo "Variante do KSU      : KernelSU (Official)"
+          echo "Branch do KSU       : ${{ inputs.ksu_branch }}"
+          echo "Horario do build       : ${{ inputs.build_time }}"
           echo "SUSFS            : ${{ inputs.enable_susfs }}"
           echo "ZRAM             : ${{ inputs.use_zram }}"
           echo "BBG              : ${{ inputs.use_bbg }}"
           echo "Re-Kernel        : ${{ inputs.use_rekernel }}"
-          echo "Stock Config     : auto-detect config/stock_defconfig"
+          echo "Config original     : auto-detectar config/stock_defconfig"
           echo "========================================"
 
-      - name: Free disk space
+      - name: Liberar espaco em disco
         uses: endersonmenezes/free-disk-space@v3
         with:
           remove_android: true
@@ -105,10 +105,10 @@ jobs:
           rmz_version: "3.1.1"
           testing: false
 
-      - name: Checkout repository
+      - name: Baixar repositorio
         uses: actions/checkout@v6
 
-      - name: Initialize build environment
+      - name: Inicializar ambiente de build
         run: |
           CONFIG="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}"
           KERNEL_ROOT="$GITHUB_WORKSPACE/$CONFIG"
@@ -131,20 +131,20 @@ jobs:
           echo "$GITHUB_WORKSPACE/git-repo" >> "$GITHUB_PATH"
           echo "REPO=$GITHUB_WORKSPACE/git-repo/repo" >> $GITHUB_ENV
 
-      - name: Show config
+      - name: Mostrar configuracao
         run: |
           CONFIG_FILE="$GITHUB_WORKSPACE/config/config"
           if [ -f "$CONFIG_FILE" ]; then
-            echo "Loading config: $CONFIG_FILE"
+            echo "Carregando config: $CONFIG_FILE"
             cat "$CONFIG_FILE"
           fi
 
-      - name: Install build dependencies
+      - name: Instalar dependencias de build
         run: |
           sudo apt-get update
           sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
 
-      - name: Configure ccache
+      - name: Configurar ccache
         run: |
           mkdir -p ~/.cache/bazel
           ccache --version
@@ -152,7 +152,7 @@ jobs:
           ccache --set-config=compression=true
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
-      - name: Restore ccache
+      - name: Restaurar ccache
         uses: actions/cache@v5
         with:
           path: ~/.ccache
@@ -160,20 +160,20 @@ jobs:
           restore-keys: |
             ${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}-ccache-
 
-      - name: Configure git
+      - name: Configurar git
         run: |
           git config --global user.name "BuildBot"
           git config --global user.email "BuildGkiKernel@gmail.com"
 
-      - name: Clone dependencies
+      - name: Clonar dependencias
         run: |
           SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
 
-          echo "Cloning AnyKernel3..."
+          echo "Clonando AnyKernel3..."
           git clone https://github.com/Guilherme01z/AnyKernel3.git
           rm -rf AnyKernel3/.git
 
-          echo "Cloning SUSFS (branch: $SUSFS_BRANCH)..."
+          echo "Clonando SUSFS (branch: $SUSFS_BRANCH)..."
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
 
           CONFIG_FILE="config/config"
@@ -182,7 +182,7 @@ jobs:
             if [ "$CUSTOM_ENABLED" == "true" ]; then
               CUSTOM_COMMIT=$(grep "^${SUSFS_BRANCH}=" "$CONFIG_FILE" | cut -d'=' -f2)
               if [ -n "$CUSTOM_COMMIT" ]; then
-                echo "Switching SUSFS to custom commit: $CUSTOM_COMMIT"
+                echo "Mudando SUSFS para commit customizado: $CUSTOM_COMMIT"
                 cd susfs4ksu
                 git checkout "$CUSTOM_COMMIT"
                 cd ..
@@ -192,19 +192,19 @@ jobs:
 
           SUSFS_LATEST_COMMIT_DATE=$(git -C susfs4ksu log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
           echo "SUSFS_LATEST_COMMIT_DATE=$SUSFS_LATEST_COMMIT_DATE" >> $GITHUB_ENV
-          echo "SUSFS latest commit date: $SUSFS_LATEST_COMMIT_DATE"
+          echo "Data do ultimo commit do SUSFS: $SUSFS_LATEST_COMMIT_DATE"
 
-          echo "Cloning ZRAM patches..."
+          echo "Clonando patches do ZRAM..."
           git clone https://github.com/Guilherme01z/NovaKernel-ZRAM.git SukiSU_patch
           git clone https://github.com/Guilherme01z/NovaKernel-Patches.git kernel_patches
 
-      - name: Sync kernel source
+      - name: Sincronizar codigo-fonte do kernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-gnu-6.4.1.git gcc
 
           FORMATTED_BRANCH="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.os_patch_level }}"
-          echo "Initializing repo, branch: common-${FORMATTED_BRANCH}"
+          echo "Inicializando repo, branch: common-${FORMATTED_BRANCH}"
 
           $REPO init --depth=1 -u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
 
@@ -212,29 +212,29 @@ jobs:
           DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
 
           if grep -q deprecated <<< $REMOTE_BRANCH; then
-            echo "Deprecated branch detected: $FORMATTED_BRANCH"
+            echo "Branch depreciada detectada: $FORMATTED_BRANCH"
             sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" $DEFAULT_MANIFEST_PATH
           fi
 
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
           echo "REMOTE_BRANCH=$REMOTE_BRANCH" >> $GITHUB_ENV
 
-      - name: Apply stock config spoof
+      - name: Aplicar mascara de config original
         run: |
           STOCK_SRC="$GITHUB_WORKSPACE/config/stock_defconfig"
           STOCK_DST="$KERNEL_ROOT/common/arch/arm64/configs/stock_defconfig"
 
           if [ ! -f "$STOCK_SRC" ]; then
-            echo "No stock_defconfig found, skipping."
+            echo "Nenhum stock_defconfig encontrado, pulando."
             exit 0
           fi
 
           mkdir -p "$(dirname "$STOCK_DST")"
           if ! cp "$STOCK_SRC" "$STOCK_DST"; then
-            echo "::error::Failed to copy stock_defconfig: $STOCK_SRC -> $STOCK_DST"
+            echo "::error::Falha ao copiar stock_defconfig: $STOCK_SRC -> $STOCK_DST"
             exit 1
           fi
-          echo "Copied stock_defconfig -> $STOCK_DST"
+          echo "Stock_defconfig copiado para $STOCK_DST"
 
           NEW_RULE='$(obj)/config_data: arch/arm64/configs/stock_defconfig FORCE'
           OLD_RULE='$(obj)/config_data: $(KCONFIG_CONFIG) FORCE'
@@ -246,16 +246,16 @@ jobs:
           fi
 
           if grep -qF "$NEW_RULE" "$TARGET_MAKEFILE"; then
-            echo "config_data rule already patched, skipping."
+            echo "Regra config_data ja aplicada, pulando."
           elif grep -qF "$OLD_RULE" "$TARGET_MAKEFILE"; then
             sed -i 's|\$(obj)/config_data: \$(KCONFIG_CONFIG) FORCE|$(obj)/config_data: arch/arm64/configs/stock_defconfig FORCE|' "$TARGET_MAKEFILE"
-            echo "Patched config_data rule: $TARGET_MAKEFILE"
+            echo "Regra config_data aplicada em: $TARGET_MAKEFILE"
           else
-            echo "::error::Rule not found in $TARGET_MAKEFILE: $OLD_RULE"
+            echo "::error::Regra nao encontrada em $TARGET_MAKEFILE: $OLD_RULE"
             exit 1
           fi
 
-      - name: Extract actual sublevel
+      - name: Extrair subnivel real
         run: |
           ACTUAL_SUBLEVEL="${{ inputs.sub_level }}"
           if [[ -f "$KERNEL_ROOT/common/Makefile" ]]; then
@@ -263,9 +263,9 @@ jobs:
             [[ -n "$EXTRACTED" ]] && ACTUAL_SUBLEVEL="$EXTRACTED"
           fi
           echo "ACTUAL_SUBLEVEL=$ACTUAL_SUBLEVEL" >> $GITHUB_ENV
-          echo "Actual sublevel: $ACTUAL_SUBLEVEL"
+          echo "Subnivel real: $ACTUAL_SUBLEVEL"
 
-      - name: Fix glibc 2.38 compatibility
+      - name: Corrigir compatibilidade glibc 2.38
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           RAW_SUB="${{ inputs.sub_level }}"
@@ -281,7 +281,7 @@ jobs:
           if [ "$NEEDS_FIX" = true ]; then
             GLIBC_VERSION=$(ldd --version 2>/dev/null | head -n 1 | awk '{print $NF}')
             if [ "$(printf '%s\n' "2.38" "$GLIBC_VERSION" | sort -V | head -n1)" = "2.38" ]; then
-              echo "Applying glibc 2.38 fix..."
+              echo "Aplicando correcao glibc 2.38..."
               sed -i '/\$(Q)\$(MAKE) -C \$(SUBCMD_SRC) OUTPUT=\$(abspath \$(dir \$@))\/ \$(abspath \$@)/s//$(Q)$(MAKE) -C $(SUBCMD_SRC) EXTRA_CFLAGS="$(CFLAGS)" OUTPUT=$(abspath $(dir $@))\/ $(abspath $@)/' tools/bpf/resolve_btfids/Makefile 2>/dev/null || true
 
               if [[ "${{ inputs.kernel_version }}" == "5.10" || "${{ inputs.kernel_version }}" == "5.15" ]]; then
@@ -293,48 +293,48 @@ jobs:
             fi
           fi
 
-      - name: OnePlus 8E support
+      - name: Suporte OnePlus 8E
         if: inputs.supp_op
         working-directory: ${{ env.KERNEL_ROOT }}/common/drivers
         run: |
-          echo "Downloading OnePlus 8E patch..."
+          echo "Baixando patch do OnePlus 8E..."
           curl -LSs "https://github.com/zzh20188/GKI_KernelSU_SUSFS/raw/refs/heads/dev/hmbird_patch.c" -o hmbird_patch.c
           echo "obj-y += hmbird_patch.o" >> Makefile
 
-      - name: Determine KernelSU branch
+      - name: Definir branch do KernelSU
         id: ksu-branch
         run: |
           branch_input="${{ inputs.ksu_branch }}"
 
           if [ -n "$branch_input" ]; then
             BRANCH="-s $branch_input"
-            echo "Using custom branch/commit: $branch_input"
+            echo "Usando branch/commit customizado: $branch_input"
           else
             BRANCH="-s main"
           fi
 
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-          echo "KernelSU branch: $BRANCH"
+          echo "Branch do KernelSU: $BRANCH"
 
-      - name: Add KernelSU
+      - name: Adicionar KernelSU
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
-          echo "Adding KernelSU (Official)..."
+          echo "Adicionando KernelSU (Official)..."
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash $BRANCH
 
           if [ -d "KernelSU/.git" ]; then
             KSU_LATEST_COMMIT_DATE=$(git -C KernelSU log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
             echo "KSU_LATEST_COMMIT_DATE=$KSU_LATEST_COMMIT_DATE" >> $GITHUB_ENV
-            echo "KernelSU latest commit date: $KSU_LATEST_COMMIT_DATE"
+            echo "Data do ultimo commit do KernelSU: $KSU_LATEST_COMMIT_DATE"
           else
             echo "KSU_LATEST_COMMIT_DATE=unknown" >> $GITHUB_ENV
           fi
 
-      - name: Apply SUSFS patches
+      - name: Aplicar patches do SUSFS
         if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
-          echo "Applying SUSFS patches..."
+          echo "Aplicando patches do SUSFS..."
 
           cp $SUSFS4KSU/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
           cp $SUSFS4KSU/kernel_patches/fs/* ./common/fs/
@@ -352,7 +352,7 @@ jobs:
               cd ..
               ;;
             *)
-              echo "Unsupported variant: ${{ inputs.ksu_variant }}"
+              echo "Variante nao suportada: ${{ inputs.ksu_variant }}"
               exit 1
               ;;
           esac
@@ -365,11 +365,11 @@ jobs:
 
           if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
             if [[ "$CURRENT_SUB" -le 43 ]]; then
-              echo "Temporarily adjusting Android 12 5.10 base.c context"
+              echo "Ajustando temporariamente contexto do base.c Android 12 5.10"
               perl -i -pe 's/(int|size_t)\s+this_len\s*=\s*min_t\s*\(\s*\1\s*,/size_t this_len = min_t(size_t,/;' fs/proc/base.c
             fi
             if [[ "$CURRENT_SUB" -le 117 ]]; then
-              echo "Temporarily adjusting Android 12 5.10 fdinfo.c context"
+              echo "Ajustando temporariamente contexto do fdinfo.c Android 12 5.10"
               sed -i '/^[[:space:]]*\/\*$/,/^[[:space:]]*u32 mask = mark->mask & IN_ALL_EVENTS;$/d' fs/notify/fdinfo.c
               perl -i -pe 's/\bmask,\s*mark->ignored_mask/inotify_mark_user_mask(mark)/g' fs/notify/fdinfo.c
               perl -i -pe 's/ignored_mask:%x/ignored_mask:0/g' fs/notify/fdinfo.c
@@ -380,11 +380,11 @@ jobs:
 
           if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
             if [[ "$CURRENT_SUB" -le 43 ]]; then
-              echo "Restoring Android 12 5.10 base.c"
+              echo "Restaurando base.c Android 12 5.10"
               sed -i 's/^size_t this_len = min_t(size_t, count, PAGE_SIZE);$/int this_len = min_t(int, count, PAGE_SIZE);/' fs/proc/base.c
             fi
             if [[ "$CURRENT_SUB" -le 117 ]]; then
-              echo "Restoring Android 12 5.10 fdinfo.c"
+              echo "Restaurando fdinfo.c Android 12 5.10"
               perl -i -pe 's/^(\s+if \(inode\) \{)/$1\n\t\t\/\*\n\t\t * IN_ALL_EVENTS represents all of the mask bits\n\t\t * that we expose to userspace.  There is at\n\t\t * least one bit (FS_EVENT_ON_CHILD) which is\n\t\t * used only internally to the kernel.\n\t\t *\/\n\t\tu32 mask = mark->mask & IN_ALL_EVENTS;/m' fs/notify/fdinfo.c
               perl -i -pe 's/\binotify_mark_user_mask\(mark\)/mask, mark->ignored_mask/g' fs/notify/fdinfo.c
               perl -i -pe 's/ignored_mask:0/ignored_mask:%x/g' fs/notify/fdinfo.c
@@ -402,10 +402,10 @@ jobs:
             fi
           fi
 
-      - name: Backup original defconfig
+      - name: Backup do defconfig original
         run: cp "$DEFCONFIG" "$DEFCONFIG.orig"
 
-      - name: Apply Unicode bypass fix
+      - name: Aplicar correcao de bypass Unicode
         if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
@@ -415,11 +415,11 @@ jobs:
             patch -p1 --forward < "$ACTION_BUILD/patches/unicode_bypass_fix_6.1+.patch" || true
           fi
 
-      - name: Configure ZRAM LZ4 patches
+      - name: Configurar patches LZ4 do ZRAM
         if: inputs.use_zram
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
-          echo "Upgrading LZ4..."
+          echo "Atualizando LZ4..."
           rm -f lib/lz4/lz4_compress.c lib/lz4/lz4_decompress.c lib/lz4/lz4defs.h lib/lz4/lz4hc_compress.c
 
           cp -r $ZZH_PATCHES/zram/lz4/* ./lib/lz4/
@@ -430,7 +430,7 @@ jobs:
             echo "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" >> "fs/f2fs/Makefile"
           fi
 
-          echo "Applying LZ4KD and LZ4K_OPLUS patches..."
+          echo "Aplicando patches LZ4KD e LZ4K_OPLUS..."
           cp -r $SUKISU_PATCHES/other/zram/lz4k/include/linux/* ./include/linux/
           cp -r $SUKISU_PATCHES/other/zram/lz4k/lib/* ./lib/
           cp -r $SUKISU_PATCHES/other/zram/lz4k/crypto/* ./crypto/
@@ -446,7 +446,7 @@ jobs:
             echo "::warning::lz4k_oplus.patch failed (may already be applied or context mismatch)"
           fi
 
-      - name: Configure ZRAM options
+      - name: Configurar opcoes do ZRAM
         if: inputs.use_zram
         run: |
           CONFIG_FILE="$DEFCONFIG"
@@ -465,7 +465,7 @@ jobs:
             cat "$ZZH_PATCHES/config/zram.config" >> "$CONFIG_FILE"
           fi
 
-      - name: Add BBG (Baseband Guard)
+      - name: Adicionar BBG (Baseband Guard)
         if: inputs.use_bbg
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
@@ -473,12 +473,12 @@ jobs:
           echo "CONFIG_BBG=y" >> common/arch/arm64/configs/gki_defconfig
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' common/security/Kconfig
 
-      - name: Apply Re-Kernel
+      - name: Aplicar Re-Kernel
         if: inputs.use_rekernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           set -e
-          echo "Integrating Re-Kernel..."
+          echo "Integrando Re-Kernel..."
           TMP_REKERNEL=/tmp/rekernel
           rm -rf "$TMP_REKERNEL"
           git clone --depth 1 https://github.com/Sakion-Team/Re-Kernel.git "$TMP_REKERNEL"
@@ -526,7 +526,7 @@ jobs:
           grep -q '^CONFIG_REKERNEL=y$' "$DEFCONFIG" || echo "CONFIG_REKERNEL=y" >> "$DEFCONFIG"
           grep -q '^CONFIG_REKERNEL_NETWORK=y$' "$DEFCONFIG" || echo "CONFIG_REKERNEL_NETWORK=y" >> "$DEFCONFIG"
 
-      - name: Configure kernel options
+      - name: Configurar opcoes do kernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           cat >> "$DEFCONFIG" << 'EOF'
@@ -537,7 +537,7 @@ jobs:
 
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
-      - name: Add SUSFS config
+      - name: Adicionar configuracao do SUSFS
         if: inputs.enable_susfs
         run: |
           cat >> "$DEFCONFIG" << 'EOF'
@@ -553,7 +553,7 @@ jobs:
           CONFIG_KSU_SUSFS_SUS_MAP=y
           EOF
 
-      - name: Configure kernel name
+      - name: Configurar nome do kernel
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           if [ -f "build/build.sh" ]; then
@@ -596,7 +596,7 @@ jobs:
             fi
           fi
 
-      - name: Set custom build time
+      - name: Definir horario customizado do build
         shell: bash
         run: |
           INPUT_TIME="${{ inputs.build_time }}"
@@ -606,7 +606,7 @@ jobs:
             DATESTR="$(TZ='UTC' date +'%a %b %d %T %Z %Y')"
           fi
 
-          echo "Using build time: $DATESTR"
+          echo "Usando horario do build: $DATESTR"
           echo "KBUILD_BUILD_TIMESTAMP=$DATESTR" >> "$GITHUB_ENV"
           echo "KBUILD_BUILD_VERSION=1" >> "$GITHUB_ENV"
 
@@ -623,7 +623,7 @@ jobs:
             fi
           fi
 
-      - name: Build kernel
+      - name: Compilar kernel
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 30
@@ -659,7 +659,7 @@ jobs:
               strings ./bazel-bin/common/kernel_aarch64/Image | grep 'Linux version'
             fi
 
-      - name: Create AnyKernel3 zip
+      - name: Criar zip do AnyKernel3
         run: |
           if [ "${{ inputs.android_version }}" == "android12" ] || [ "${{ inputs.android_version }}" == "android13" ]; then
             SRC_DIR="$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist"
@@ -672,7 +672,7 @@ jobs:
           mv "$SRC_DIR/Image" ./Image
           zip -r "../$ZIP_NAME" ./*
 
-      - name: Collect patch rejects
+      - name: Coletar rejeicoes de patch
         if: always()
         run: |
           REJECTS_DIR="$GITHUB_WORKSPACE/patch-rejects"
@@ -680,7 +680,7 @@ jobs:
 
           mapfile -t REJS < <(find "$KERNEL_ROOT" -type f -name '*.rej')
           REJ_COUNT=${#REJS[@]}
-          echo "Found $REJ_COUNT .rej files"
+          echo "Encontrados $REJ_COUNT .rej files"
           echo "REJ_COUNT=$REJ_COUNT" >> $GITHUB_ENV
 
           if [ "$REJ_COUNT" -gt 0 ]; then
@@ -698,14 +698,14 @@ jobs:
             done
           fi
 
-      - name: Upload build artifacts
+      - name: Enviar artefatos do build
         uses: actions/upload-artifact@v6
         with:
           name: KernelSU_kernel-${{ env.CONFIG }}
           path: *AnyKernel3.zip
           compression-level: 9
 
-      - name: Upload reject files
+      - name: Enviar arquivos rejeitados
         if: always() && env.REJ_COUNT > 0
         uses: actions/upload-artifact@v6
         with:
