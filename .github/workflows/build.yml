@@ -160,10 +160,6 @@ jobs:
           ZZH_PATCHES=$GITHUB_WORKSPACE
           ANYKERNEL3=$GITHUB_WORKSPACE/AnyKernel3
           ACTION_BUILD=$GITHUB_WORKSPACE/Action-Build
-          AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool
-          MKBOOTIMG=$GITHUB_WORKSPACE/mkbootimg/mkbootimg.py
-          UNPACK_BOOTIMG=$GITHUB_WORKSPACE/mkbootimg/unpack_bootimg.py
-          BOOT_SIGN_KEY_PATH=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem
           EOF
 
           # 下载并配置 repo 工具 (用于同步 Android 内核源码)
@@ -207,33 +203,6 @@ jobs:
           key: ${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}-ccache-${{ github.sha }}
           restore-keys: |
             ${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}-ccache-
-
-      # ==================== 缓存工具链 ====================
-      # 缓存 AOSP 构建工具，避免每次重新下载
-      - name: 缓存工具链
-        id: cache-toolchain
-        uses: actions/cache@v5
-        with:
-          path: |
-            kernel-build-tools
-            mkbootimg
-          key: toolchain-${{ runner.os }}-v1
-
-      # ==================== 下载工具链 ====================
-      # 从 AOSP 镜像下载内核构建工具和 mkbootimg
-      - name: 下载工具链
-        if: steps.cache-toolchain.outputs.cache-hit != 'true'
-        run: |
-          AOSP_MIRROR=https://android.googlesource.com
-          BRANCH=main-kernel-build-2024
-          git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
-          git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
-
-      # ==================== 生成签名密钥 ====================
-      # 生成用于 boot.img 签名的 RSA 密钥
-      - name: 生成签名密钥
-        run: |
-          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > $BOOT_SIGN_KEY_PATH
 
       # ==================== 配置 Git ====================
       - name: 配置 Git
@@ -1329,91 +1298,20 @@ jobs:
             echo "当前 SUSFS 最新提交日期: ${SUSFS_LATEST_COMMIT_DATE}"
             echo "如果日期不同或相差过远则补丁失效、编译失败"
 
-      # ==================== 准备 Boot 镜像 ====================
-      # 复制编译产物到工作目录
-      - name: 准备 Boot 镜像
+      # ==================== 创建 AnyKernel3 压缩包 ====================
+      - name: 创建 AnyKernel3 压缩包
         run: |
-          mkdir -p bootimgs
-
           if [ "${{ inputs.android_version }}" == "android12" ] || [ "${{ inputs.android_version }}" == "android13" ]; then
             SRC_DIR="$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist"
           else
             SRC_DIR="$KERNEL_ROOT/bazel-bin/common/kernel_aarch64"
           fi
 
-          cp "$SRC_DIR/Image" ./bootimgs/
-          cp "$SRC_DIR/Image.lz4" ./bootimgs/
-          cp "$SRC_DIR/Image" ./
-          cp "$SRC_DIR/Image.lz4" ./
-          gzip -n -k -f -9 ./Image > ./Image.gz
-
-      # ==================== 创建 AnyKernel3 压缩包 ====================
-      - name: 创建 AnyKernel3 压缩包
-        run: |
           cd $ANYKERNEL3
           ZIP_NAME="${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-AnyKernel3.zip"
-          mv ../Image ./Image
+          mv "$SRC_DIR/Image" ./Image
           zip -r "../$ZIP_NAME" ./*
 
-      # ==================== 构建 Boot 镜像 (Android 12) ====================
-      # Android 12 需要从 GKI 认证镜像中提取 ramdisk
-#      - name: 构建 Boot 镜像 (Android 12)
-#        if: inputs.android_version == 'android12'
-#        working-directory: bootimgs
-#        run: |
-#          GKI_URL=https://dl.google.com/android/gki/gki-certified-boot-android12-5.10-${{ inputs.os_patch_level }}_${{ inputs.revision }}.zip
-#          FALLBACK_URL=https://dl.google.com/android/gki/gki-certified-boot-android12-5.10-2023-01_r1.zip
-#
-#          status=$(curl -sL -w "%{http_code}" "$GKI_URL" -o /dev/null)
-#          if [ "$status" = "200" ]; then
-#            curl -Lo gki-kernel.zip "$GKI_URL"
-#          else
-#            curl -Lo gki-kernel.zip "$FALLBACK_URL"
-#          fi
-#
-#          unzip gki-kernel.zip && rm gki-kernel.zip
-#          $UNPACK_BOOTIMG --boot_img="$(pwd)/boot-5.10.img"
-#
-#          gzip -n -k -f -9 ./Image > ./Image.gz
-#
-#         # 创建普通 boot.img
-#          $MKBOOTIMG --header_version 4 --kernel Image --output boot.img --ramdisk out/ramdisk --os_version 12.0.0 --os_patch_level "${{ inputs.os_patch_level }}"
-#          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-#          cp ./boot.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot.img
-#
-#          # 创建 gzip 压缩的 boot.img
-#          $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img --ramdisk out/ramdisk --os_version 12.0.0 --os_patch_level "${{ inputs.os_patch_level }}"
-#          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-#          cp ./boot-gz.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-gz.img
-#
-#          # 创建 lz4 压缩的 boot.img
-#          $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img --ramdisk out/ramdisk --os_version 12.0.0 --os_patch_level "${{ inputs.os_patch_level }}"
-#          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-#          cp ./boot-lz4.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-lz4.img
-#
-#      # ==================== 构建 Boot 镜像 (Android 13+) ====================
-#      # Android 13 及以上版本不需要 ramdisk
-#      - name: 构建 Boot 镜像 (Android 13+)
-#        if: inputs.android_version == 'android13' || inputs.android_version == 'android14' || inputs.android_version == 'android15' || inputs.android_version == 'android16'
-#        working-directory: bootimgs
-#        run: |
-#          gzip -n -k -f -9 ./Image > ./Image.gz
-#
-#          # 创建普通 boot.img
-#          $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
-#          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-#          cp ./boot.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot.img
-#
-#          # 创建 gzip 压缩的 boot.img
-#          $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img
-#          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-#          cp ./boot-gz.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-gz.img
-#
-#          # 创建 lz4 压缩的 boot.img
-#          $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img
-#          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-#          cp ./boot-lz4.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}-boot-lz4.img
-#
       # ==================== 收集补丁冲突文件 ====================
       # 收集所有 .rej 文件用于调试补丁失败问题
       - name: 收集补丁冲突文件
@@ -1447,9 +1345,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: KernelSU_kernel-${{ env.CONFIG }}
-          path: |
-            *AnyKernel3.zip
-#            *.img
+          path: *AnyKernel3.zip
           compression-level: 9
 
       # ==================== 上传补丁冲突文件 ====================
