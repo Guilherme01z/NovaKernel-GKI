@@ -1,6 +1,5 @@
-name: 内核构建 - Android 12 (5.10)
+name: Build Kernel - Android 12 (5.10)
 
-# 适配 Node.js 24
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -11,43 +10,52 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      # KernelSU 变体固定为 KernelSU
+      sub_level:
+        description: "Kernel sublevel (e.g. 246, 237, 233, X=LTS=5.10.257)"
+        required: true
+        type: string
+        default: "X"
+      os_patch_level:
+        description: "Security patch level (e.g. 2025-12, lts)"
+        required: true
+        type: string
+        default: "lts"
       kernelsu_branch:
-        description: "KSU 分支 (main/builtin/自定义commit hash，留空使用默认)"
+        description: "KernelSU branch (main, dev, or commit hash)"
         required: false
         type: string
-        default: ""
+        default: "main"
       version:
-        description: "自定义版本名 (可选)"
+        description: "Custom version name (optional)"
         required: false
         type: string
       build_time:
-        description: "自定义构建时间 (可选，N或留空=当前UTC)"
+        description: "Custom build time (optional, N or empty = current UTC)"
         required: false
         type: string
-        default: "Sun Dec 01 08:10:00 UTC 2024"
+        default: ""
       use_zram:
-        description: "启用 ZRAM 增强算法"
+        description: "Enable ZRAM LZ4KD enhancement"
         required: true
         type: boolean
-        default: false
+        default: true
       use_bbg:
-        description: "启用 BBG 防格机"
+        description: "Enable BBG Baseband Guard"
         required: true
         type: boolean
         default: false
       use_rekernel:
-        description: "启用 Re-Kernel 驱动"
+        description: "Enable Re-Kernel driver"
         required: false
         type: boolean
         default: false
       cancel_susfs:
-        description: "禁用 SUSFS"
+        description: "Disable SUSFS"
         required: true
         type: boolean
         default: false
       droidspaces:
-        description: "Droidspaces 容器支持"
+        description: "Droidspaces container support"
         required: false
         type: choice
         options:
@@ -57,132 +65,22 @@ on:
           - "345"
         default: "off"
       droidspaces_ntsync:
-        description: "启用 Droidspaces 容器 NTSync 支持（需启用 Droidspaces）"
-        required: false
-        type: boolean
-        default: false
-  workflow_call:
-    inputs:
-      # KernelSU 变体固定为 KernelSU
-      kernelsu_branch:
-        required: true
-        type: string
-      version:
-        required: false
-        type: string
-      build_time:
-        required: false
-        type: string
-        default: "Sun Dec 01 08:10:00 UTC 2024"
-      use_zram:
-        required: true
-        type: boolean
-      use_bbg:
-        required: true
-        type: boolean
-      use_rekernel:
-        required: false
-        type: boolean
-        default: false
-      cancel_susfs:
-        required: false
-        type: boolean
-      droidspaces:
-        required: false
-        type: string
-        default: "off"
-      droidspaces_ntsync:
-        required: false
-        type: boolean
-        default: false
-      called_from_main:
-        description: "是否从 main.yml 调用（内部使用）"
+        description: "Enable Droidspaces NTSync (requires Droidspaces)"
         required: false
         type: boolean
         default: false
 
 jobs:
-  build-kernels-a12-5-10:
-    name: "5.10.${{ matrix.sub_level }}-${{ matrix.os_patch_level }}"
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - sub_level: "66"
-            os_patch_level: "2022-01"
-            revision: "r11"
-          - sub_level: "81"
-            os_patch_level: "2022-03"
-            revision: "r11"
-          - sub_level: "101"
-            os_patch_level: "2022-04"
-            revision: "r28"
-          - sub_level: "110"
-            os_patch_level: "2022-07"
-            revision: "r1"
-          - sub_level: "117"
-            os_patch_level: "2022-09"
-            revision: "r1"
-          - sub_level: "136"
-            os_patch_level: "2022-11"
-            revision: "r15"
-          - sub_level: "149"
-            os_patch_level: "2023-01"
-            revision: "r1"
-          - sub_level: "160"
-            os_patch_level: "2023-03"
-            revision: "r1"
-          - sub_level: "168"
-            os_patch_level: "2023-04"
-            revision: "r9"
-          - sub_level: "177"
-            os_patch_level: "2023-07"
-            revision: "r3"
-          - sub_level: "185"
-            os_patch_level: "2023-09"
-            revision: "r1"
-          - sub_level: "198"
-            os_patch_level: "2024-01"
-            revision: "r17"
-          - sub_level: "205"
-            os_patch_level: "2024-03"
-            revision: "r1"
-          - sub_level: "209"
-            os_patch_level: "2024-05"
-            revision: "r13"
-          - sub_level: "218"
-            os_patch_level: "2024-08"
-            revision: "r14"
-          - sub_level: "226"
-            os_patch_level: "2024-11"
-            revision: "r8"
-          - sub_level: "233"
-            os_patch_level: "2025-02"
-            revision: "r1"
-          - sub_level: "236"
-            os_patch_level: "2025-05"
-            revision: "r1"
-          - sub_level: "237"
-            os_patch_level: "2025-06"
-            revision: "r1"
-          - sub_level: "240"
-            os_patch_level: "2025-09"
-            revision: "r1"
-          - sub_level: "246"
-            os_patch_level: "2025-12"
-            revision: "r1"
-          - sub_level: "X"
-            os_patch_level: "lts"
-            revision: "r1"
+  build-kernel:
+    name: "5.10.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}"
     uses: ./.github/workflows/build.yml
     secrets: inherit
     with:
       android_version: "android12"
       kernel_version: "5.10"
-      sub_level: ${{ matrix.sub_level }}
-      os_patch_level: ${{ matrix.os_patch_level }}
-      revision: ${{ matrix.revision }}
-      ksu_variant: "KernelSU"
+      sub_level: ${{ inputs.sub_level }}
+      os_patch_level: ${{ inputs.os_patch_level }}
+      ksu_variant: "Official"
       ksu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time || '' }}
@@ -194,8 +92,6 @@ jobs:
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
 
-  # 仅在直接触发时运行，从 main.yml 调用时跳过
   get-ksu-manager:
-    if: ${{ !inputs.called_from_main }}
     uses: ./.github/workflows/get-manager.yml
     secrets: inherit
