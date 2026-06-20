@@ -67,6 +67,10 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
 
+  get-manager:
+    uses: ./.github/workflows/get-manager.yml
+    secrets: inherit
+
   collect-rejects:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
@@ -167,9 +171,9 @@ jobs:
           | Feature | Status |
           |:---|:---|
           | SUSFS | Enabled |
-          | ZRAM LZ4KD | Enabled |
-          | BBG | Enabled |
-          | Re-Kernel | Disabled |
+          | ZRAM LZ4KD | ${{ inputs.use_zram && 'Enabled' || 'Disabled' }} |
+          | BBG | ${{ inputs.use_bbg && 'Enabled' || 'Disabled' }} |
+          | Re-Kernel | ${{ inputs.use_rekernel && 'Enabled' || 'Disabled' }} |
 
           ### Kernel Info
 

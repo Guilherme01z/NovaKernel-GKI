@@ -64,8 +64,6 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel || false }}
       supp_op: false
       enable_susfs: ${{ !inputs.cancel_susfs }}
-      droidspaces: "off"
-      droidspaces_ntsync: false
 
   get-ksu-manager:
     uses: ./.github/workflows/get-manager.yml
