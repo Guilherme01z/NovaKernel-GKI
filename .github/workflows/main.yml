@@ -48,7 +48,7 @@ on:
       use_rekernel:
         description: "Enable Re-Kernel driver"
         type: boolean
-        default: false
+        default: true
       cancel_susfs:
         description: "Disable SUSFS"
         type: boolean
