@@ -149,7 +149,7 @@ jobs:
           SUKISU_PATCHES=$GITHUB_WORKSPACE/SukiSU_patch
           ZZH_PATCHES=$GITHUB_WORKSPACE
           ANYKERNEL3=$GITHUB_WORKSPACE/AnyKernel3
-          ACTION_BUILD=$GITHUB_WORKSPACE/Action-Build
+          ACTION_BUILD=$GITHUB_WORKSPACE/kernel_patches
           EOF
 
           # 下载并配置 repo 工具 (用于同步 Android 内核源码)
@@ -208,7 +208,7 @@ jobs:
           SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
 
           echo "克隆 AnyKernel3..."
-          git clone https://github.com/KernelSU-GKI/AnyKernel3.git -b "master"
+          git clone https://github.com/Guilherme01z/NovaKernel-AnyKernel3.git AnyKernel3
           rm -rf AnyKernel3/.git
 
           echo "克隆 SUSFS (分支: $SUSFS_BRANCH)..."
@@ -235,10 +235,8 @@ jobs:
           echo "SUSFS 仓库最新提交日期: $SUSFS_LATEST_COMMIT_DATE"
 
           echo "准备补丁资源..."
-          git clone https://github.com/WildKernels/kernel_patches.git
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
-          echo "使用当前仓库补丁目录: $ZZH_PATCHES"
-          git clone https://github.com/Numbersf/Action-Build.git --depth=1
+          git clone https://github.com/Guilherme01z/NovaKernel-Patches.git kernel_patches
+          git clone https://github.com/Guilherme01z/NovaKernel-ZRAM.git SukiSU_patch
 
       # ==================== 初始化并同步内核源码 ====================
       # 使用 repo 工具从 AOSP 获取 GKI 内核源码
