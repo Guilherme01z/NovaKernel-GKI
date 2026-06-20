@@ -11,15 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       sub_level:
-        description: "Kernel sublevel (e.g. 246, 237, 233, X=LTS=5.10.259)"
+        description: "Kernel sublevel (246, 237, 233, 226, 218, 209, 205, 198, 185, 177, 168, 160, 149, 136, 117, 110, 101, 81, 66, or X for LTS 5.10.259)"
         required: true
         type: string
-        default: "X"
-      os_patch_level:
-        description: "Security patch level (e.g. 2025-12, lts)"
-        required: true
-        type: string
-        default: "lts"
       kernelsu_branch:
         description: "KernelSU branch (main, dev, or commit hash)"
         required: false
@@ -71,15 +65,60 @@ on:
         default: false
 
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      sub_level: ${{ steps.map.outputs.sub_level }}
+      os_patch_level: ${{ steps.map.outputs.os_patch_level }}
+    steps:
+      - name: Map sublevel to patch level
+        id: map
+        run: |
+          SUB="${{ inputs.sub_level }}"
+
+          case "$SUB" in
+            66)  PATCH="2022-01" ;;
+            81)  PATCH="2022-03" ;;
+            101) PATCH="2022-04" ;;
+            110) PATCH="2022-07" ;;
+            117) PATCH="2022-09" ;;
+            136) PATCH="2022-11" ;;
+            149) PATCH="2023-01" ;;
+            160) PATCH="2023-03" ;;
+            168) PATCH="2023-04" ;;
+            177) PATCH="2023-07" ;;
+            185) PATCH="2023-09" ;;
+            198) PATCH="2024-01" ;;
+            205) PATCH="2024-03" ;;
+            209) PATCH="2024-05" ;;
+            218) PATCH="2024-08" ;;
+            226) PATCH="2024-11" ;;
+            233) PATCH="2025-02" ;;
+            236) PATCH="2025-05" ;;
+            237) PATCH="2025-06" ;;
+            240) PATCH="2025-09" ;;
+            246) PATCH="2025-12" ;;
+            X|x) PATCH="lts"; SUB="X" ;;
+            *)
+              echo "::error::Sublevel $SUB not recognized. Valid: 66,81,101,110,117,136,149,160,168,177,185,198,205,209,218,226,233,236,237,240,246,X"
+              exit 1
+              ;;
+          esac
+
+          echo "sub_level=$SUB" >> $GITHUB_OUTPUT
+          echo "os_patch_level=$PATCH" >> $GITHUB_OUTPUT
+          echo "Resolved: 5.10.$SUB -> patch $PATCH"
+
   build-kernel:
-    name: "5.10.${{ inputs.sub_level }}-${{ inputs.os_patch_level }}"
+    needs: resolve
+    name: "5.10.${{ needs.resolve.outputs.sub_level }}-${{ needs.resolve.outputs.os_patch_level }}"
     uses: ./.github/workflows/build.yml
     secrets: inherit
     with:
       android_version: "android12"
       kernel_version: "5.10"
-      sub_level: ${{ inputs.sub_level }}
-      os_patch_level: ${{ inputs.os_patch_level }}
+      sub_level: ${{ needs.resolve.outputs.sub_level }}
+      os_patch_level: ${{ needs.resolve.outputs.os_patch_level }}
       ksu_variant: "Official"
       ksu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}

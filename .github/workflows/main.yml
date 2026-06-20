@@ -15,15 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       sub_level:
-        description: "Kernel sublevel (e.g. 246, 237, 233, X=LTS=5.10.259)"
+        description: "Kernel sublevel (246, 237, 233, 226, 218, 209, 205, 198, 185, 177, 168, 160, 149, 136, 117, 110, 101, 81, 66, or X for LTS 5.10.259)"
         required: true
         type: string
-        default: "X"
-      os_patch_level:
-        description: "Security patch level (e.g. 2025-12, lts)"
-        required: true
-        type: string
-        default: "lts"
       release_type:
         description: "Release type"
         type: choice
@@ -83,7 +77,6 @@ jobs:
     secrets: inherit
     with:
       sub_level: ${{ inputs.sub_level }}
-      os_patch_level: ${{ inputs.os_patch_level }}
       kernelsu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version }}
       build_time: ${{ inputs.build_time }}
@@ -155,6 +148,34 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
+      - name: Resolve patch level
+        run: |
+          SUB="${{ inputs.sub_level }}"
+          case "$SUB" in
+            66)  echo "PATCH=2022-01" >> $GITHUB_ENV ;;
+            81)  echo "PATCH=2022-03" >> $GITHUB_ENV ;;
+            101) echo "PATCH=2022-04" >> $GITHUB_ENV ;;
+            110) echo "PATCH=2022-07" >> $GITHUB_ENV ;;
+            117) echo "PATCH=2022-09" >> $GITHUB_ENV ;;
+            136) echo "PATCH=2022-11" >> $GITHUB_ENV ;;
+            149) echo "PATCH=2023-01" >> $GITHUB_ENV ;;
+            160) echo "PATCH=2023-03" >> $GITHUB_ENV ;;
+            168) echo "PATCH=2023-04" >> $GITHUB_ENV ;;
+            177) echo "PATCH=2023-07" >> $GITHUB_ENV ;;
+            185) echo "PATCH=2023-09" >> $GITHUB_ENV ;;
+            198) echo "PATCH=2024-01" >> $GITHUB_ENV ;;
+            205) echo "PATCH=2024-03" >> $GITHUB_ENV ;;
+            209) echo "PATCH=2024-05" >> $GITHUB_ENV ;;
+            218) echo "PATCH=2024-08" >> $GITHUB_ENV ;;
+            226) echo "PATCH=2024-11" >> $GITHUB_ENV ;;
+            233) echo "PATCH=2025-02" >> $GITHUB_ENV ;;
+            236) echo "PATCH=2025-05" >> $GITHUB_ENV ;;
+            237) echo "PATCH=2025-06" >> $GITHUB_ENV ;;
+            240) echo "PATCH=2025-09" >> $GITHUB_ENV ;;
+            246) echo "PATCH=2025-12" >> $GITHUB_ENV ;;
+            X|x) echo "PATCH=lts" >> $GITHUB_ENV ;;
+          esac
+
       - name: Get KernelSU commit info
         run: |
           REPO_URL="https://github.com/tiann/KernelSU.git"
@@ -185,7 +206,7 @@ jobs:
       - name: Generate release notes
         run: |
           SUB="${{ inputs.sub_level }}"
-          if [ "$SUB" = "X" ]; then
+          if [ "$SUB" = "X" ] || [ "$SUB" = "x" ]; then
             SUB_DISPLAY="LTS (5.10.259)"
           else
             SUB_DISPLAY="5.10.$SUB"
@@ -202,6 +223,7 @@ jobs:
           |:---|:---|
           | Android | 12 |
           | Kernel | $SUB_DISPLAY |
+          | Patch Level | ${{ env.PATCH }} |
           | KernelSU | [${{ env.KSU_REF }}](${{ env.KSU_URL }}) |
           | SUSFS | [${{ env.SUSFS_COMMIT }}](${{ env.SUSFS_URL }}) |
 
@@ -221,13 +243,11 @@ jobs:
         run: |
           SUS_VERSION="${{ needs.get-manager.outputs.susVer }}"
           SUB="${{ inputs.sub_level }}"
-          if [ "$SUB" = "X" ]; then
+          if [ "$SUB" = "X" ] || [ "$SUB" = "x" ]; then
             SUB="lts"
           fi
-
           NEW_TAG="v${SUS_VERSION}-a12-5.10.${SUB}"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
-          echo "Tag: $NEW_TAG"
 
       - name: Download artifacts
         uses: actions/download-artifact@v8
@@ -240,7 +260,6 @@ jobs:
           if [ "${{ inputs.release_type }}" == "Pre-Release" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
-
           gh release create "$NEW_TAG" \
             --title "${{ env.RELEASE_NAME }}" \
             --notes-file release_body.md \
@@ -250,12 +269,10 @@ jobs:
       - name: Upload manager and SUSFS module
         continue-on-error: true
         run: |
-          find ./downloaded-artifacts -type f -name "*.apk" -print0 | \
-          while IFS= read -r -d '' f; do
+          find ./downloaded-artifacts -type f -name "*.apk" -print0 | while IFS= read -r -d '' f; do
             gh release upload "$NEW_TAG" "$f" || true
           done
-          find ./downloaded-artifacts -type f -path "./downloaded-artifacts/susfs-*/*" -print0 | \
-          while IFS= read -r -d '' f; do
+          find ./downloaded-artifacts -type f -path "./downloaded-artifacts/susfs-*/*" -print0 | while IFS= read -r -d '' f; do
             gh release upload "$NEW_TAG" "$f" || true
           done
 
@@ -269,10 +286,3 @@ jobs:
 
       - name: Publish release
         run: gh release edit --draft=false "$NEW_TAG"
-
-      - name: Summary
-        run: |
-          echo "## Release created" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag**: $NEW_TAG" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type**: ${{ inputs.release_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Link**: https://github.com/$REPO_OWNER/$REPO_NAME/releases/tag/$NEW_TAG" >> $GITHUB_STEP_SUMMARY
