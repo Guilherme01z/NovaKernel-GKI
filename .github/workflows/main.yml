@@ -37,19 +37,6 @@ on:
         type: string
         default: ""
         required: false
-      droidspaces:
-        description: "Droidspaces container support"
-        type: choice
-        options:
-          - "off"
-          - "678"
-          - "123"
-          - "345"
-        default: "off"
-      droidspaces_ntsync:
-        description: "Enable Droidspaces NTSync (requires Droidspaces)"
-        type: boolean
-        default: false
       use_zram:
         description: "Enable ZRAM LZ4KD enhancement"
         type: boolean
@@ -57,7 +44,7 @@ on:
       use_bbg:
         description: "Enable BBG Baseband Guard"
         type: boolean
-        default: false
+        default: true
       use_rekernel:
         description: "Enable Re-Kernel driver"
         type: boolean
@@ -79,8 +66,6 @@ jobs:
       use_bbg: ${{ inputs.use_bbg }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
 
   collect-rejects:
     if: ${{ !cancelled() }}
@@ -176,6 +161,15 @@ jobs:
           ## GKI Kernel Release
 
           **KernelSU** + **SUSFS ${{ env.SUS_VER }}**
+
+          ### Features
+
+          | Feature | Status |
+          |:---|:---|
+          | SUSFS | Enabled |
+          | ZRAM LZ4KD | Enabled |
+          | BBG | Enabled |
+          | Re-Kernel | Disabled |
 
           ### Kernel Info
 

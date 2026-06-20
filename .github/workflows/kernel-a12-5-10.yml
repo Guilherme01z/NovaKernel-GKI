@@ -33,7 +33,7 @@ on:
         description: "Enable BBG Baseband Guard"
         required: true
         type: boolean
-        default: false
+        default: true
       use_rekernel:
         description: "Enable Re-Kernel driver"
         required: false
@@ -42,21 +42,6 @@ on:
       cancel_susfs:
         description: "Disable SUSFS"
         required: true
-        type: boolean
-        default: false
-      droidspaces:
-        description: "Droidspaces container support"
-        required: false
-        type: choice
-        options:
-          - "off"
-          - "678"
-          - "123"
-          - "345"
-        default: "off"
-      droidspaces_ntsync:
-        description: "Enable Droidspaces NTSync (requires Droidspaces)"
-        required: false
         type: boolean
         default: false
 
@@ -79,8 +64,8 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel || false }}
       supp_op: false
       enable_susfs: ${{ !inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces || 'off' }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
+      droidspaces: "off"
+      droidspaces_ntsync: false
 
   get-ksu-manager:
     uses: ./.github/workflows/get-manager.yml
