@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       sub_level:
-        description: "Kernel sublevel (e.g. 246, 237, 233, X=LTS=5.10.257)"
+        description: "Kernel sublevel (e.g. 246, 237, 233, X=LTS=5.10.259)"
         required: true
         type: string
         default: "X"
@@ -186,7 +186,7 @@ jobs:
         run: |
           SUB="${{ inputs.sub_level }}"
           if [ "$SUB" = "X" ]; then
-            SUB_DISPLAY="LTS (5.10.257)"
+            SUB_DISPLAY="LTS (5.10.259)"
           else
             SUB_DISPLAY="5.10.$SUB"
           fi

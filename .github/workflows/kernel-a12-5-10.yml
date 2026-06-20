@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       sub_level:
-        description: "Kernel sublevel (e.g. 246, 237, 233, X=LTS=5.10.257)"
+        description: "Kernel sublevel (e.g. 246, 237, 233, X=LTS=5.10.259)"
         required: true
         type: string
         default: "X"
